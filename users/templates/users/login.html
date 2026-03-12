@@ -1,25 +1,9 @@
-{% extends "logs/base.html" %}
-{% load bootstrap3 %}
+<h2>Log in</h2>
 
-{% block header %}
-<h2>Log in to your account.</h2>
-{% endblock header %}
-
-{% block content %}
-
-<form method="post" action="{% url 'users:login' %}" class="form">
-
-{% csrf_token %}
-
-{% bootstrap_form form %}
-
-{% buttons %}
-<button name="submit" class="btn btn-primary">Log in</button>
-{% endbuttons %}
-
-<input type="hidden" name="next"
-value="{% url 'logs:index' %}" />
-
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Log in</button>
 </form>
 
-{% endblock content %}
+<p>Don't have an account? <a href="{% url 'users:register' %}">Register here</a></p>

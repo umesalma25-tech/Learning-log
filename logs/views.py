@@ -1,20 +1,25 @@
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-from django.http import HttpResponseRedirect
-from django.urls import reverse
-from .models import Topic
-from .forms import TopicForm
-from django.http import Http404
+from django.shortcuts import render, redirect, get_object_or_404
+from .models import Topic, Entry
+from .forms import TopicForm, EntryForm
 
-@login_required
+
 def index(request):
     return render(request, 'logs/index.html')
-@login_required
+
+
 def topics(request):
     topics = Topic.objects.order_by('date_added')
-    context = {'topics': topics}
-    return render(request, 'logs/topics.html', context)
-@login_required
+    return render(request, 'logs/topics.html', {'topics': topics})
+
+
+def topic(request, topic_id):
+    topic = get_object_or_404(Topic, id=topic_id)
+    entries = topic.entry_set.order_by('-date_added')
+
+    return render(request, 'logs/topic.html',
+                  {'topic': topic, 'entries': entries})
+
+
 def new_topic(request):
     if request.method != 'POST':
         form = TopicForm()
@@ -22,42 +27,34 @@ def new_topic(request):
         form = TopicForm(request.POST)
         if form.is_valid():
             new_topic = form.save(commit=False)
-            new_topic.owner = request.user
+            new_topic.owner = request.user   # ⭐ username save hoga
             new_topic.save()
-            return HttpResponseRedirect(reverse('logs:topics'))
+            return redirect('logs:topics')
 
-    context = {'form': form}
-    return render(request, 'logs/new_topic.html', context)
-from django.shortcuts import render, redirect
-from .models import Topic
-from .forms import EntryForm
-@login_required
+    return render(request, 'logs/new_topic.html', {'form': form})
+
+
 def new_entry(request, topic_id):
-    """Add a new entry for a topic."""
-    
-    topic = Topic.objects.get(id=topic_id)
+    topic = get_object_or_404(Topic, id=topic_id)
 
     if request.method != 'POST':
         form = EntryForm()
     else:
-        form = EntryForm(data=request.POST)
+        form = EntryForm(request.POST)
         if form.is_valid():
             new_entry = form.save(commit=False)
             new_entry.topic = topic
+            new_entry.owner = request.user   # ⭐ username save hoga
             new_entry.save()
-            return redirect('logs:topic', topic_id=topic_id)
+            return redirect('logs:topic', topic_id=topic.id)
 
-    context = {'topic': topic, 'form': form}
-    return render(request, 'logs/new_entry.html', context)
-from django.shortcuts import render, redirect
-from .models import Entry
-from .forms import EntryForm
-@login_required
+    return render(request, 'logs/new_entry.html',
+                  {'topic': topic, 'form': form})
+
+
 def edit_entry(request, entry_id):
-    entry = Entry.objects.get(id=entry_id)
+    entry = get_object_or_404(Entry, id=entry_id)
     topic = entry.topic
-    if topic.owner != request.user:
-        raise Http404
 
     if request.method != 'POST':
         form = EntryForm(instance=entry)
@@ -67,14 +64,18 @@ def edit_entry(request, entry_id):
             form.save()
             return redirect('logs:topic', topic_id=topic.id)
 
-    context = {'entry': entry, 'topic': topic, 'form': form}
-    return render(request, 'logs/edit_entry.html', context)
-@login_required
-def topic(request, topic_id):
-    topic = Topic.objects.get(id=topic_id)
-    if topic.owner != request.user:
-        raise Http404
-    entries = topic.entry_set.order_by('-date_added')
+    return render(request, 'logs/edit_entry.html',
+                  {'entry': entry, 'topic': topic, 'form': form})
 
-    context = {'topic': topic, 'entries': entries}
-    return render(request, 'logs/topic.html', context)
+
+def delete_topic(request, topic_id):
+    topic = get_object_or_404(Topic, id=topic_id)
+    topic.delete()
+    return redirect('logs:topics')
+
+
+def delete_entry(request, entry_id):
+    entry = get_object_or_404(Entry, id=entry_id)
+    topic_id = entry.topic.id
+    entry.delete()
+    return redirect('logs:topic', topic_id=topic_id)
