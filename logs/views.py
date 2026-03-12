@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
 from .models import Topic, Entry
 from .forms import TopicForm, EntryForm
 
@@ -27,7 +28,7 @@ def new_topic(request):
         form = TopicForm(request.POST)
         if form.is_valid():
             new_topic = form.save(commit=False)
-            new_topic.owner = request.user   # ⭐ username save hoga
+            new_topic.owner = request.user
             new_topic.save()
             return redirect('logs:topics')
 
@@ -44,7 +45,7 @@ def new_entry(request, topic_id):
         if form.is_valid():
             new_entry = form.save(commit=False)
             new_entry.topic = topic
-            new_entry.owner = request.user   # ⭐ username save hoga
+            new_entry.owner = request.user
             new_entry.save()
             return redirect('logs:topic', topic_id=topic.id)
 
@@ -55,6 +56,11 @@ def new_entry(request, topic_id):
 def edit_entry(request, entry_id):
     entry = get_object_or_404(Entry, id=entry_id)
     topic = entry.topic
+
+    # owner check
+    if entry.owner != request.user:
+        messages.error(request, "You can't edit this entry.")
+        return redirect('logs:topics')
 
     if request.method != 'POST':
         form = EntryForm(instance=entry)
@@ -70,12 +76,24 @@ def edit_entry(request, entry_id):
 
 def delete_topic(request, topic_id):
     topic = get_object_or_404(Topic, id=topic_id)
+
+    if topic.owner != request.user:
+        messages.error(request, "You can't delete this topic.")
+        return redirect('logs:topics')
+
     topic.delete()
+    messages.success(request, "Topic deleted successfully.")
     return redirect('logs:topics')
 
 
 def delete_entry(request, entry_id):
     entry = get_object_or_404(Entry, id=entry_id)
+
+    if entry.owner != request.user:
+        messages.error(request, "You can't delete this entry.")
+        return redirect('logs:topics')
+
     topic_id = entry.topic.id
     entry.delete()
+    messages.success(request, "Entry deleted successfully.")
     return redirect('logs:topic', topic_id=topic_id)
